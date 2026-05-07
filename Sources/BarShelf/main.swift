@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import BarShelfCore
 import CoreGraphics
+import ServiceManagement
 
 struct ManagedMenuBarItem: Identifiable, Equatable {
     let id: String
@@ -76,6 +77,30 @@ final class Preferences {
     }
 }
 
+
+
+final class LaunchAtLoginController {
+    var isEnabled: Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        if #available(macOS 13.0, *) {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                }
+            }
+        }
+    }
+}
 
 final class PermissionManager {
     static var isAccessibilityTrusted: Bool {
@@ -305,6 +330,7 @@ final class FloatingShelfWindowController: NSObject {
 final class BarShelfController: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     private let scanner = MenuBarItemScanner()
+    private let launchAtLogin = LaunchAtLoginController()
     private let overlays = MaskOverlayController()
     private var floatingShelf: FloatingShelfWindowController!
     private var managedItems: [ManagedMenuBarItem] = []
@@ -447,6 +473,10 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
             openSettings()
         case .permissions:
             requestPermissions()
+        case .launchAtLoginOn:
+            setLaunchAtLogin(true)
+        case .launchAtLoginOff:
+            setLaunchAtLogin(false)
         }
     }
 
@@ -493,6 +523,10 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         advanced.state = preferences.useAdvancedRouting ? .on : .off
         advanced.translatesAutoresizingMaskIntoConstraints = false
 
+        let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "Launch BarShelf at login", target: self, action: #selector(launchAtLoginChanged(_:)))
+        launchAtLoginCheckbox.state = launchAtLogin.isEnabled ? .on : .off
+        launchAtLoginCheckbox.translatesAutoresizingMaskIntoConstraints = false
+
         let permissionButton = NSButton(title: "Request permissions", target: self, action: #selector(requestPermissions))
         permissionButton.translatesAutoresizingMaskIntoConstraints = false
 
@@ -533,7 +567,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         alwaysHidden.state = preferences.alwaysHiddenEnabled ? .on : .off
         alwaysHidden.translatesAutoresizingMaskIntoConstraints = false
 
-        [title, instructions, advanced, permissionButton, rescanButton, scroll, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
+        [title, instructions, advanced, launchAtLoginCheckbox, permissionButton, rescanButton, scroll, legacyTitle, widthLabel, widthSlider, alwaysHidden].forEach(content.addSubview)
 
         NSLayoutConstraint.activate([
             title.topAnchor.constraint(equalTo: content.topAnchor, constant: 24),
@@ -546,12 +580,15 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
 
             advanced.topAnchor.constraint(equalTo: instructions.bottomAnchor, constant: 18),
             advanced.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-            permissionButton.centerYAnchor.constraint(equalTo: advanced.centerYAnchor),
-            permissionButton.leadingAnchor.constraint(equalTo: advanced.trailingAnchor, constant: 18),
-            rescanButton.centerYAnchor.constraint(equalTo: advanced.centerYAnchor),
+            launchAtLoginCheckbox.topAnchor.constraint(equalTo: advanced.bottomAnchor, constant: 12),
+            launchAtLoginCheckbox.leadingAnchor.constraint(equalTo: title.leadingAnchor),
+
+            permissionButton.centerYAnchor.constraint(equalTo: launchAtLoginCheckbox.centerYAnchor),
+            permissionButton.leadingAnchor.constraint(equalTo: launchAtLoginCheckbox.trailingAnchor, constant: 18),
+            rescanButton.centerYAnchor.constraint(equalTo: launchAtLoginCheckbox.centerYAnchor),
             rescanButton.leadingAnchor.constraint(equalTo: permissionButton.trailingAnchor, constant: 10),
 
-            scroll.topAnchor.constraint(equalTo: advanced.bottomAnchor, constant: 18),
+            scroll.topAnchor.constraint(equalTo: launchAtLoginCheckbox.bottomAnchor, constant: 18),
             scroll.leadingAnchor.constraint(equalTo: title.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: title.trailingAnchor),
             scroll.heightAnchor.constraint(equalToConstant: 250),
@@ -625,6 +662,23 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     @objc private func advancedRoutingChanged(_ sender: NSButton) {
         preferences.useAdvancedRouting = sender.state == .on
         rescanAndApply()
+    }
+
+    @objc private func launchAtLoginChanged(_ sender: NSButton) {
+        setLaunchAtLogin(sender.state == .on)
+        sender.state = launchAtLogin.isEnabled ? .on : .off
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try launchAtLogin.setEnabled(enabled)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not update Launch at Login"
+            alert.informativeText = error.localizedDescription
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
     }
 
     @objc private func rescanFromSettings() {

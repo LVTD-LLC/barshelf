@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added native Launch at Login support using Apple ServiceManagement (`SMAppService.mainApp`).
+- Added a Settings checkbox plus CLI commands for launch-at-login status/enable/disable.
+
 ## 0.3.1 - 2026-05-07
 
 - Added `barshelf install-cli` and `barshelf uninstall-cli` helpers for creating/removing a PATH symlink to the app-bundled CLI.
