@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-05-07
 
 - Added native Swift `barshelf` CLI executable for status/list JSON output, shelf show/hide/toggle, rescan, settings, permissions, and per-item visibility mode updates.
 - Added shared app/CLI settings storage under `com.gregagi.barshelf` and distributed-notification IPC for live app commands.
