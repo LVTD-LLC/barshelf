@@ -5,7 +5,7 @@
 - Added generated BarShelf app icon/logo assets.
 - Wired the icon into the macOS app bundle and DMG volume metadata.
 - Added the icon to the README and GitHub Pages docs.
-- Documented Homebrew installation via `brew tap gregagi/tap` and `brew install --cask barshelf`.
+- Documented Homebrew installation via `brew tap lvtd-llc/tap` and `brew install --cask barshelf`.
 - Added conditional Developer ID signing and Apple notarization support to the release workflow.
 - Added signing/notarization docs, including required GitHub secrets and macOS-vs-iOS distribution notes.
 - Added a repo-contained static documentation site under `docs/`.

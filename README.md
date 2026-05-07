@@ -33,7 +33,7 @@ BarShelf asks for these from Settings → Request permissions. After granting pe
 Homebrew:
 
 ```bash
-brew tap gregagi/tap
+brew tap lvtd-llc/tap
 brew install --cask barshelf
 ```
 
