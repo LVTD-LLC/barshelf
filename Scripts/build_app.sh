@@ -20,10 +20,15 @@ cp "$BUILD_DIR/barshelf" "$MACOS_DIR/barshelf"
 cp "$ROOT_DIR/Resources/Info.plist" "$CONTENTS_DIR/Info.plist"
 chmod +x "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/barshelf"
 
-if command -v codesign >/dev/null 2>&1; then
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS_DIR/Info.plist" >/dev/null
+
+SIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
+if [[ -n "$SIGN_IDENTITY" ]]; then
+  codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$MACOS_DIR/barshelf"
+  codesign --force --timestamp --options runtime --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
+elif command -v codesign >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP_DIR"
 fi
 
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$CONTENTS_DIR/Info.plist" >/dev/null
-
+codesign --verify --deep --strict "$APP_DIR"
 echo "Built $APP_DIR"

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signing and notarization — BarShelf Docs</title>
+  <meta name="description" content="How BarShelf release signing and Apple notarization works.">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="hero small-hero">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="brand" href="./">BarShelf</a>
+      <div class="links">
+        <a href="./#install">Install</a>
+        <a href="./#cli">CLI</a>
+        <a href="signing-notarization.html">Signing</a>
+        <a href="https://github.com/gregagi/barshelf">GitHub</a>
+      </div>
+    </nav>
+    <section class="hero-content">
+      <p class="eyebrow">Release operations</p>
+      <h1>Signing and notarization</h1>
+      <p class="lede">BarShelf can produce Apple-signed and notarized macOS release DMGs when the repository has the required Apple Developer secrets.</p>
+    </section>
+  </header>
+
+  <main>
+    <section class="section">
+      <h2>What this solves</h2>
+      <p>Unsigned macOS apps trigger Gatekeeper friction. Signing with a <strong>Developer ID Application</strong> certificate and notarizing the DMG tells macOS that Apple scanned and accepted the release for direct distribution outside the Mac App Store.</p>
+    </section>
+
+    <section class="section">
+      <h2>Required Apple account</h2>
+      <p>You need an active <strong>Apple Developer Program</strong> membership. A free Apple ID is not enough for Developer ID distribution.</p>
+      <p>For direct-download macOS apps, use a <strong>Developer ID Application</strong> certificate. This is separate from Mac App Store and iOS App Store signing assets.</p>
+    </section>
+
+    <section class="section">
+      <h2>GitHub secrets</h2>
+      <p>Add these repository secrets before creating a release:</p>
+      <ul>
+        <li><code>APPLE_DEVELOPER_ID_APPLICATION_CERT_BASE64</code> — base64-encoded <code>.p12</code> Developer ID Application certificate.</li>
+        <li><code>APPLE_DEVELOPER_ID_APPLICATION_CERT_PASSWORD</code> — password for the exported <code>.p12</code>.</li>
+        <li><code>APPLE_KEYCHAIN_PASSWORD</code> — temporary CI keychain password.</li>
+        <li><code>APPLE_ID</code> — Apple ID email used for notarization.</li>
+        <li><code>APPLE_TEAM_ID</code> — Apple Developer Team ID.</li>
+        <li><code>APPLE_APP_SPECIFIC_PASSWORD</code> — app-specific password for notarization.</li>
+      </ul>
+      <p>If signing secrets are absent, the release workflow still builds an unsigned DMG. If signing and notarization secrets are present, it signs, notarizes, staples, and uploads the DMG.</p>
+    </section>
+
+    <section class="section">
+      <h2>Create the certificate secret</h2>
+      <ol>
+        <li>Create or download a <strong>Developer ID Application</strong> certificate from Apple Developer.</li>
+        <li>Export it from Keychain Access as a password-protected <code>.p12</code>.</li>
+        <li>Base64 encode it:</li>
+      </ol>
+      <pre><code>base64 -i DeveloperIDApplication.p12 | pbcopy</code></pre>
+      <p>Paste the copied value into <code>APPLE_DEVELOPER_ID_APPLICATION_CERT_BASE64</code>.</p>
+    </section>
+
+    <section class="section">
+      <h2>macOS direct distribution vs iOS App Store</h2>
+      <p>The Apple Developer Program account is shared, but the release pipelines are different:</p>
+      <ul>
+        <li><strong>macOS direct download:</strong> Developer ID certificate + notarization + stapling. This is what BarShelf uses for GitHub Releases.</li>
+        <li><strong>iOS App Store:</strong> App Store distribution certificate/profiles or automatic signing, App Store Connect app record, bundle IDs, entitlements, TestFlight/App Review, and upload via Xcode or Transporter tooling.</li>
+      </ul>
+      <p>So setting up Developer ID notarization does not automatically ship iOS apps, but the paid Apple Developer membership is the same prerequisite.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p><a href="./">Back to BarShelf docs</a></p>
+  </footer>
+</body>
+</html>
