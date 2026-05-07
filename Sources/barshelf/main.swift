@@ -30,7 +30,7 @@ struct BarShelfCLI {
 
     static func run(arguments: [String]) throws {
         let command = try CLIParser.parse(arguments)
-        var store = BarShelfSettingsStore()
+        let store = BarShelfSettingsStore()
 
         switch command {
         case .help:
@@ -75,8 +75,7 @@ struct BarShelfCLI {
         DistributedNotificationCenter.default().post(
             name: BarShelfIPC.notificationName,
             object: nil,
-            userInfo: ["command": command.rawValue],
-            deliverImmediately: true
+            userInfo: ["command": command.rawValue]
         )
     }
 
