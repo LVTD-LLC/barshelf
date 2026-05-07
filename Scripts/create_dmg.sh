@@ -12,6 +12,13 @@ mkdir -p "$STAGING_DIR"
 cp -R "$DIST_DIR/$APP_NAME.app" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
+if [[ -f "$DIST_DIR/AppIcon.icns" ]]; then
+  cp "$DIST_DIR/AppIcon.icns" "$STAGING_DIR/.VolumeIcon.icns"
+  if command -v SetFile >/dev/null 2>&1; then
+    SetFile -a C "$STAGING_DIR" || true
+  fi
+fi
+
 hdiutil create \
   -volname "$APP_NAME" \
   -srcfolder "$STAGING_DIR" \

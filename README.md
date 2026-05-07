@@ -1,5 +1,7 @@
 # BarShelf
 
+<p align="center"><img src="docs/assets/app-icon.png" alt="BarShelf app icon" width="128" height="128"></p>
+
 BarShelf is an open-source, free macOS menu bar manager experiment — a tiny native Bartender-style alternative.
 
 Documentation site: https://gregagi.github.io/barshelf/
