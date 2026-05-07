@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added conditional Developer ID signing and Apple notarization support to the release workflow.
+- Added signing/notarization docs, including required GitHub secrets and macOS-vs-iOS distribution notes.
 - Added a repo-contained static documentation site under `docs/`.
 - Added a GitHub Actions workflow to deploy `docs/` to GitHub Pages.
 

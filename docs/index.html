@@ -16,6 +16,7 @@
         <a href="#usage">Usage</a>
         <a href="#cli">CLI</a>
         <a href="#permissions">Permissions</a>
+        <a href="signing-notarization.html">Signing</a>
         <a href="https://github.com/gregagi/barshelf">GitHub</a>
       </div>
     </nav>
@@ -109,7 +110,7 @@ barshelf permissions</code></pre>
       <pre><code>swift test --configuration debug --enable-code-coverage
 swift build -c release
 ./Scripts/build_app.sh</code></pre>
-      <p>GitHub Actions runs tests and builds on every pull request. Release tags build and attach <code>BarShelf.dmg</code>.</p>
+      <p>GitHub Actions runs tests and builds on every pull request. Release tags build and attach <code>BarShelf.dmg</code>. If Apple Developer secrets are configured, release builds are signed, notarized, and stapled automatically. See <a href="signing-notarization.html">Signing and notarization</a>.</p>
     </section>
   </main>
 
