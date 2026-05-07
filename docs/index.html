@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BarShelf Docs</title>
+  <meta name="description" content="Documentation for BarShelf, an open-source macOS menu bar manager with a floating shelf and CLI.">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="brand" href="./">BarShelf</a>
+      <div class="links">
+        <a href="#install">Install</a>
+        <a href="#usage">Usage</a>
+        <a href="#cli">CLI</a>
+        <a href="#permissions">Permissions</a>
+        <a href="https://github.com/gregagi/barshelf">GitHub</a>
+      </div>
+    </nav>
+    <section class="hero-content">
+      <p class="eyebrow">Open-source macOS menu bar control</p>
+      <h1>Hide menu bar clutter behind a tiny floating shelf.</h1>
+      <p class="lede">BarShelf is a native macOS menu bar manager with per-item visibility modes, a translucent floating shelf, Launch at Login, and an automation-friendly CLI.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/gregagi/barshelf/releases/latest">Download latest DMG</a>
+        <a class="button secondary" href="https://github.com/gregagi/barshelf">View source</a>
+      </div>
+    </section>
+  </header>
+
+  <main>
+    <section class="cards" aria-label="Highlights">
+      <article>
+        <h2>Three visibility modes</h2>
+        <p>Route detected menu bar items to Always shown, Floating shelf, or Always hidden.</p>
+      </article>
+      <article>
+        <h2>Floating shelf</h2>
+        <p>Click BarShelf’s persistent status item to reveal hidden icons in a compact shelf below the menu bar.</p>
+      </article>
+      <article>
+        <h2>CLI for agents</h2>
+        <p>Use <code>barshelf</code> commands and JSON output from scripts, power-user workflows, or AI agents.</p>
+      </article>
+    </section>
+
+    <section id="install" class="section">
+      <h2>Install</h2>
+      <ol>
+        <li>Download <a href="https://github.com/gregagi/barshelf/releases/latest">BarShelf.dmg from the latest release</a>.</li>
+        <li>Drag <strong>BarShelf.app</strong> into Applications.</li>
+        <li>Launch BarShelf. Because builds are unsigned for now, macOS may require right-click → Open the first time.</li>
+      </ol>
+      <p>After launching, open Settings from the BarShelf menu bar item to configure visibility modes and permissions.</p>
+    </section>
+
+    <section id="usage" class="section">
+      <h2>Usage</h2>
+      <p>BarShelf’s own <code>▦</code> icon always remains visible in the macOS menu bar. Click it to show or hide the floating shelf.</p>
+      <h3>Visibility modes</h3>
+      <ul>
+        <li><strong>Always shown</strong> keeps the original icon visible.</li>
+        <li><strong>Floating shelf</strong> masks the original icon and shows it in BarShelf’s shelf when opened.</li>
+        <li><strong>Always hidden</strong> masks the original icon and does not show it in the shelf.</li>
+      </ul>
+      <h3>Fallback separator mode</h3>
+      <p>If macOS does not expose an item reliably, use the fallback separator mode: hold Command (⌘), drag menu bar icons left of BarShelf’s <code>│</code> separator, then collapse/expand the shelf.</p>
+    </section>
+
+    <section id="permissions" class="section">
+      <h2>Permissions</h2>
+      <p>Advanced routing depends on user-approved macOS permissions:</p>
+      <ul>
+        <li><strong>Accessibility</strong> lets BarShelf forward clicks from the floating shelf to the original menu bar item.</li>
+        <li><strong>Screen Recording / Screen Capture</strong> lets BarShelf capture menu bar icon images for the shelf.</li>
+      </ul>
+      <p>Use Settings → Request permissions, then quit and reopen BarShelf after granting them.</p>
+    </section>
+
+    <section id="cli" class="section">
+      <h2>CLI</h2>
+      <p>The native Swift CLI ships inside the app bundle:</p>
+      <pre><code>/Applications/BarShelf.app/Contents/MacOS/barshelf status --json</code></pre>
+      <h3>Install into PATH</h3>
+      <pre><code>/Applications/BarShelf.app/Contents/MacOS/barshelf install-cli
+barshelf status --json</code></pre>
+      <p>If <code>/usr/local/bin</code> is not writable, install to a user-writable PATH location:</p>
+      <pre><code>/Applications/BarShelf.app/Contents/MacOS/barshelf install-cli --path "$HOME/.local/bin/barshelf"</code></pre>
+      <h3>Common commands</h3>
+      <pre><code>barshelf status --json
+barshelf list --json
+barshelf show
+barshelf hide
+barshelf toggle
+barshelf rescan
+barshelf set &lt;item-id&gt; floating-shelf
+barshelf launch-at-login status --json
+barshelf launch-at-login enable
+barshelf launch-at-login disable
+barshelf open-settings
+barshelf permissions</code></pre>
+    </section>
+
+    <section id="development" class="section">
+      <h2>Development</h2>
+      <p>BarShelf is built with SwiftPM and AppKit. The app, CLI, and tests live in this repository.</p>
+      <pre><code>swift test --configuration debug --enable-code-coverage
+swift build -c release
+./Scripts/build_app.sh</code></pre>
+      <p>GitHub Actions runs tests and builds on every pull request. Release tags build and attach <code>BarShelf.dmg</code>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>BarShelf is MIT licensed. Built by <a href="https://github.com/gregagi">Greg AGI</a>.</p>
+  </footer>
+</body>
+</html>
