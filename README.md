@@ -41,6 +41,19 @@ Open BarShelf Settings and assign each detected menu bar item to one of the thre
 
 If an item cannot be detected reliably, use fallback separator mode: hold `Command (⌘)`, drag menu bar icons to the left of BarShelf's `│` separator, then collapse/expand the shelf.
 
+
+## Testing
+
+BarShelf uses SwiftPM XCTest for headless logic that can run reliably on GitHub-hosted macOS runners. The CI pipeline runs on every pull request and on pushes to `main`:
+
+```bash
+swift test --configuration debug --enable-code-coverage
+swift build -c release
+./Scripts/build_app.sh
+```
+
+UI behavior that depends on macOS Accessibility or Screen Recording prompts still needs manual verification on a real Mac because GitHub runners cannot grant those permissions interactively.
+
 ## Build locally
 
 ```bash

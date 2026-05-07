@@ -1,20 +1,7 @@
 import AppKit
 import ApplicationServices
+import BarShelfCore
 import CoreGraphics
-
-enum VisibilityMode: String, CaseIterable, Codable {
-    case alwaysShown
-    case floatingShelf
-    case alwaysHidden
-
-    var label: String {
-        switch self {
-        case .alwaysShown: return "Always shown"
-        case .floatingShelf: return "Floating shelf"
-        case .alwaysHidden: return "Always hidden"
-        }
-    }
-}
 
 struct ManagedMenuBarItem: Identifiable, Equatable {
     let id: String
@@ -25,8 +12,7 @@ struct ManagedMenuBarItem: Identifiable, Equatable {
     let image: NSImage?
 
     var displayName: String {
-        if name.isEmpty { return owner }
-        return "\(owner) — \(name)"
+        MenuBarItemIdentity(owner: owner, name: name, roundedX: Int(bounds.minX.rounded())).displayName
     }
 }
 
@@ -73,13 +59,10 @@ final class Preferences {
 
     var itemModes: [String: VisibilityMode] {
         get {
-            guard let data = UserDefaults.standard.data(forKey: Key.itemModes),
-                  let raw = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
-            return raw.compactMapValues(VisibilityMode.init(rawValue:))
+            VisibilityModeCodec.decode(UserDefaults.standard.data(forKey: Key.itemModes))
         }
         set {
-            let raw = newValue.mapValues(\.rawValue)
-            if let data = try? JSONEncoder().encode(raw) {
+            if let data = try? VisibilityModeCodec.encode(newValue) {
                 UserDefaults.standard.set(data, forKey: Key.itemModes)
             }
         }
@@ -152,8 +135,7 @@ final class MenuBarItemScanner {
         guard isLikelyStatusItem(layer: layer, bounds: bounds) else { return nil }
 
         let name = info[kCGWindowName as String] as? String ?? ""
-        let stableName = name.isEmpty ? "status-item" : name
-        let id = "\(owner)|\(stableName)|\(Int(bounds.minX.rounded()))"
+        let id = MenuBarItemIdentity(owner: owner, name: name, roundedX: Int(bounds.minX.rounded())).id
         let image = capture(windowNumber: CGWindowID(windowNumber), bounds: bounds)
 
         return ManagedMenuBarItem(id: id, owner: owner, name: name, windowNumber: CGWindowID(windowNumber), bounds: bounds, image: image)

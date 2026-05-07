@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added a `BarShelfCore` SwiftPM library target with XCTest coverage for visibility modes, menu bar item identity, and persisted routing mode serialization.
+- Updated PR CI to run `swift test` with code coverage before release/app bundle builds.
+
 ## 0.2.1 - 2026-05-07
 
 - Made BarShelf’s own status bar icon persistently visible and changed its default click behavior to reveal/hide the floating shelf of hidden icons.
