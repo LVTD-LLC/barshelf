@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 - 2026-05-07
 
 - Added native Launch at Login support using Apple ServiceManagement (`SMAppService.mainApp`).
 - Added a Settings checkbox plus CLI commands for launch-at-login status/enable/disable.
