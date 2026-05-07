@@ -7,7 +7,7 @@ let package = Package(
     products: [
         .library(name: "BarShelfCore", targets: ["BarShelfCore"]),
         .executable(name: "BarShelf", targets: ["BarShelf"]),
-        .executable(name: "barshelf", targets: ["barshelf"])
+        .executable(name: "barshelf", targets: ["BarShelfCLI"])
     ],
     targets: [
         .target(
@@ -20,9 +20,9 @@ let package = Package(
             path: "Sources/BarShelf"
         ),
         .executableTarget(
-            name: "barshelf",
+            name: "BarShelfCLI",
             dependencies: ["BarShelfCore"],
-            path: "Sources/barshelf"
+            path: "Sources/BarShelfCLI"
         ),
         .testTarget(
             name: "BarShelfCoreTests",
