@@ -1,5 +1,6 @@
 import BarShelfCore
 import Foundation
+import ServiceManagement
 
 struct CLIError: Error, CustomStringConvertible {
     let description: String
@@ -63,6 +64,16 @@ struct BarShelfCLI {
         case .permissions:
             post(.permissions)
             print("permission prompt requested")
+        case .launchAtLoginStatus(let json):
+            printLaunchAtLoginStatus(json: json)
+        case .launchAtLoginEnable:
+            try setLaunchAtLogin(true)
+            post(.launchAtLoginOn)
+            print("launch at login enabled")
+        case .launchAtLoginDisable:
+            try setLaunchAtLogin(false)
+            post(.launchAtLoginOff)
+            print("launch at login disabled")
         case .installCLI(let path, let force):
             let result = try installCLI(path: path, force: force)
             print("installed: \(result.linkPath) -> \(result.executablePath)")
@@ -77,6 +88,39 @@ struct BarShelfCLI {
         }
     }
 
+
+
+    static func launchAtLoginEnabled() -> Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }
+
+    static func setLaunchAtLogin(_ enabled: Bool) throws {
+        if #available(macOS 13.0, *) {
+            if enabled {
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
+            } else {
+                if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
+                }
+            }
+        } else {
+            throw CLIError("launch at login requires macOS 13 or newer", exitCode: 70)
+        }
+    }
+
+    static func printLaunchAtLoginStatus(json: Bool) {
+        let enabled = launchAtLoginEnabled()
+        if json {
+            printJSONObject(["launchAtLogin": enabled])
+        } else {
+            print("launchAtLogin: \(enabled)")
+        }
+    }
 
     struct InstallResult {
         let executablePath: String
@@ -221,6 +265,9 @@ struct BarShelfCLI {
       barshelf set <item-id> <always-shown|floating-shelf|always-hidden>
       barshelf open-settings
       barshelf permissions
+      barshelf launch-at-login status [--json]
+      barshelf launch-at-login enable
+      barshelf launch-at-login disable
       barshelf install-cli [--path /usr/local/bin/barshelf] [--force]
       barshelf uninstall-cli [--path /usr/local/bin/barshelf]
     """

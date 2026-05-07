@@ -141,3 +141,17 @@ final class CLIInstallParserTests: XCTestCase {
         }
     }
 }
+
+final class LaunchAtLoginCLIParserTests: XCTestCase {
+    func testParsesLaunchAtLoginStatus() throws {
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login"]), .launchAtLoginStatus(json: false))
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login", "status", "--json"]), .launchAtLoginStatus(json: true))
+    }
+
+    func testParsesLaunchAtLoginEnableDisable() throws {
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login", "enable"]), .launchAtLoginEnable)
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login", "on"]), .launchAtLoginEnable)
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login", "disable"]), .launchAtLoginDisable)
+        XCTAssertEqual(try CLIParser.parse(["launch-at-login", "off"]), .launchAtLoginDisable)
+    }
+}

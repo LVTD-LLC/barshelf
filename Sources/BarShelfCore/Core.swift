@@ -172,6 +172,8 @@ public enum BarShelfIPC {
         case rescan
         case openSettings = "open-settings"
         case permissions
+        case launchAtLoginOn = "launch-at-login-on"
+        case launchAtLoginOff = "launch-at-login-off"
     }
 }
 
@@ -185,6 +187,9 @@ public enum CLICommand: Equatable {
     case rescan
     case openSettings
     case permissions
+    case launchAtLoginStatus(json: Bool)
+    case launchAtLoginEnable
+    case launchAtLoginDisable
     case installCLI(path: String?, force: Bool)
     case uninstallCLI(path: String?)
     case set(itemId: String, mode: VisibilityMode)
@@ -246,6 +251,22 @@ public enum CLIParser {
         case "permissions":
             guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
             return .permissions
+        case "launch-at-login":
+            guard let subcommand = args.first else { return .launchAtLoginStatus(json: json) }
+            args.removeFirst()
+            switch subcommand {
+            case "status":
+                guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+                return .launchAtLoginStatus(json: json)
+            case "enable", "on":
+                guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+                return .launchAtLoginEnable
+            case "disable", "off":
+                guard args.isEmpty else { throw CLIParserError.tooManyArguments(args) }
+                return .launchAtLoginDisable
+            default:
+                throw CLIParserError.unknownCommand("launch-at-login \(subcommand)")
+            }
         case "install-cli":
             let parsed = try parseInstallOptions(args)
             return .installCLI(path: parsed.path, force: parsed.force)
