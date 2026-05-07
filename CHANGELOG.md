@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Documented Homebrew installation via `brew tap gregagi/tap` and `brew install --cask barshelf`.
 - Added conditional Developer ID signing and Apple notarization support to the release workflow.
 - Added signing/notarization docs, including required GitHub secrets and macOS-vs-iOS distribution notes.
 - Added a repo-contained static documentation site under `docs/`.

@@ -28,6 +28,15 @@ BarShelf asks for these from Settings → Request permissions. After granting pe
 
 ## Install
 
+Homebrew:
+
+```bash
+brew tap gregagi/tap
+brew install --cask barshelf
+```
+
+Manual download:
+
 Download the latest `BarShelf.dmg` from GitHub Releases, drag `BarShelf.app` into Applications, then launch it.
 
 Unsigned builds may require right-click → Open the first time.
