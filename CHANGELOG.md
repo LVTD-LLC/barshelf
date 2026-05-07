@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added a repo-contained static documentation site under `docs/`.
+- Added a GitHub Actions workflow to deploy `docs/` to GitHub Pages.
+
 ## 0.3.2 - 2026-05-07
 
 - Added native Launch at Login support using Apple ServiceManagement (`SMAppService.mainApp`).
