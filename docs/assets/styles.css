@@ -196,3 +196,20 @@ footer {
 
 .small-hero { min-height: 46vh; }
 .small-hero h1 { font-size: clamp(2.6rem, 7vw, 5.2rem); }
+
+.app-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+.app-icon {
+  width: clamp(96px, 16vw, 150px);
+  height: clamp(96px, 16vw, 150px);
+  border-radius: 28%;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 760px) {
+  .app-icon-wrap { justify-content: flex-start; }
+}
