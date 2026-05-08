@@ -45,9 +45,9 @@ SIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
 if [[ -n "$SIGN_IDENTITY" ]]; then
   codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$MACOS_DIR/barshelf"
   codesign --force --timestamp --options runtime --deep --sign "$SIGN_IDENTITY" "$APP_DIR"
+  codesign --verify --deep --strict "$APP_DIR"
 elif command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign - "$APP_DIR"
+  echo "No Developer ID signing identity configured; leaving app unsigned to avoid per-build ad-hoc cdhash changes that reset macOS privacy permissions."
 fi
 
-codesign --verify --deep --strict "$APP_DIR"
 echo "Built $APP_DIR"

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Fixed update friction by no longer forcing setup after the user has completed first-run setup, and by avoiding per-build ad-hoc signing when no Developer ID identity is configured.
+- Stopped masking floating-shelf items in the real menu bar, preventing the broken gray overlay from appearing over/under the menu bar.
+- Re-anchored the floating shelf toward the top-right below the menu bar and kept it ordered by the Floating shelf row.
+- Replaced button-based settings tiles with dedicated drag-source icon views so dragging works between rows and horizontally within a row.
+- Left-aligned all state rows and made every row fill the organizer width.
+- Captured Accessibility-discovered menu extras directly from their screen bounds when possible so more icons render as actual icons instead of fallback letters.
+
 ## 0.3.10 - 2026-05-08
 
 - Replaced the single click-to-cycle settings strip with a three-row organizer for Always shown, Floating shelf, and Always hidden states.

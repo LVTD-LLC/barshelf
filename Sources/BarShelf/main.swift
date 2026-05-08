@@ -410,8 +410,14 @@ final class AXMenuBarItemScanner {
             bundleIdentifier: app.bundleIdentifier,
             windowNumber: 0,
             bounds: bounds,
-            image: nil
+            image: captureScreen(bounds: bounds)
         )
+    }
+
+    private func captureScreen(bounds: CGRect) -> NSImage? {
+        guard PermissionManager.hasScreenCaptureAccess else { return nil }
+        guard let cgImage = CGWindowListCreateImage(bounds, [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID, [.bestResolution]) else { return nil }
+        return NSImage(cgImage: cgImage, size: bounds.size)
     }
 
     private func bestName(for element: AXUIElement, bundleIdentifier: String?, width: CGFloat) -> String {
@@ -475,7 +481,9 @@ final class MaskOverlayController {
     private var overlays: [String: NSPanel] = [:]
 
     func apply(items: [ManagedMenuBarItem], preferences: Preferences) {
-        let hiddenIds = Set(items.filter { preferences.mode(for: $0) != .alwaysShown }.map(\.id))
+        // Keep floating items visible in the real menu bar for now. The previous mask panels
+        // looked like a broken grey bar when WindowServer returned coarse/merged bounds.
+        let hiddenIds = Set(items.filter { preferences.mode(for: $0) == .alwaysHidden }.map(\.id))
 
         for item in items where hiddenIds.contains(item.id) {
             let frame = appKitFrame(forCGWindowBounds: item.bounds)
@@ -490,6 +498,11 @@ final class MaskOverlayController {
             panel.orderOut(nil)
             overlays[id] = nil
         }
+    }
+
+    func clear() {
+        overlays.values.forEach { $0.orderOut(nil) }
+        overlays.removeAll()
     }
 
     func temporarilyReveal(id: String, action: () -> Void) {
@@ -517,7 +530,7 @@ final class MaskOverlayController {
 
         let view = NSVisualEffectView(frame: NSRect(origin: .zero, size: bounds.size))
         view.autoresizingMask = [.width, .height]
-        view.material = .menu
+        view.material = .menuBar
         view.blendingMode = .behindWindow
         view.state = .active
         panel.contentView = view
@@ -627,12 +640,14 @@ final class FloatingShelfWindowController: NSObject {
         let screen = screen(containing: anchorWindowFrame) ?? NSScreen.main ?? NSScreen.screens.first
         let screenFrame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let visibleFrame = screen?.visibleFrame ?? NSRect(x: screenFrame.minX, y: screenFrame.minY, width: screenFrame.width, height: screenFrame.height - 24)
+        let preferredAnchor = anchorWindowFrame.map { Double($0.midX) } ?? Double(screenFrame.maxX - 48)
         let layout = FloatingShelfLayoutCalculator.frame(
             itemCount: itemCount,
             screenMinX: Double(screenFrame.minX),
             screenMaxX: Double(screenFrame.maxX),
             visibleFrameMaxY: Double(visibleFrame.maxY),
-            anchorMidX: anchorWindowFrame.map { Double($0.midX) }
+            anchorMidX: preferredAnchor,
+            gapBelowMenuBar: 10
         )
         return NSRect(x: CGFloat(layout.x), y: CGFloat(layout.y), width: CGFloat(layout.width), height: CGFloat(layout.height))
     }
@@ -755,18 +770,66 @@ private enum SettingsDragPasteboard {
     static let type = NSPasteboard.PasteboardType("com.gregagi.barshelf.menu-item-id")
 }
 
-final class IconTileButton: NSButton {
+final class IconTileView: NSView {
     let itemId: String
+    private let image: NSImage?
+    private let title: String
+    private let fillColor: NSColor
+    private let strokeColor: NSColor
+    private var mouseDownEvent: NSEvent?
 
-    init(itemId: String) {
+    init(itemId: String, image: NSImage?, title: String, fillColor: NSColor, strokeColor: NSColor) {
         self.itemId = itemId
+        self.image = image
+        self.title = title
+        self.fillColor = fillColor
+        self.strokeColor = strokeColor
         super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        layer?.masksToBounds = true
+        layer?.backgroundColor = fillColor.cgColor
+        layer?.borderWidth = 2
+        layer?.borderColor = strokeColor.cgColor
         registerForDraggedTypes([SettingsDragPasteboard.type])
     }
 
     required init?(coder: NSCoder) { nil }
 
+    override var intrinsicContentSize: NSSize { NSSize(width: 44, height: 38) }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        if let image {
+            let size = image.size == .zero ? NSSize(width: 22, height: 22) : image.size
+            let rect = NSRect(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2, width: size.width, height: size.height)
+            if image.isTemplate {
+                NSColor.white.set()
+                image.draw(in: rect, from: .zero, operation: .sourceAtop, fraction: 1, respectFlipped: true, hints: nil)
+            } else {
+                image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+            }
+        } else {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 14, weight: .semibold)
+            ]
+            let string = NSString(string: title)
+            let size = string.size(withAttributes: attributes)
+            string.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2), withAttributes: attributes)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        mouseDownEvent = event
+    }
+
     override func mouseDragged(with event: NSEvent) {
+        guard let mouseDownEvent else { return }
+        let deltaX = event.locationInWindow.x - mouseDownEvent.locationInWindow.x
+        let deltaY = event.locationInWindow.y - mouseDownEvent.locationInWindow.y
+        guard hypot(deltaX, deltaY) > 3 else { return }
         let pasteboardItem = NSPasteboardItem()
         pasteboardItem.setString(itemId, forType: SettingsDragPasteboard.type)
         let item = NSDraggingItem(pasteboardWriter: pasteboardItem)
@@ -788,7 +851,7 @@ final class IconTileButton: NSButton {
     }
 }
 
-extension IconTileButton: NSDraggingSource {
+extension IconTileView: NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .move }
     func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
 }
@@ -834,8 +897,8 @@ final class ModeDropRowView: NSView {
     }
 
     private func targetId(at point: NSPoint) -> String? {
-        func collectButtons(in view: NSView) -> [IconTileButton] {
-            let direct = (view as? IconTileButton).map { [$0] } ?? []
+        func collectButtons(in view: NSView) -> [IconTileView] {
+            let direct = (view as? IconTileView).map { [$0] } ?? []
             return direct + view.subviews.flatMap(collectButtons(in:))
         }
         let candidates = collectButtons(in: self)
@@ -1004,6 +1067,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         preferences.saveLastSeenItems(managedItems)
         guard preferences.useAdvancedRouting else {
             floatingShelf.hide()
+            overlays.clear()
             return
         }
         overlays.apply(items: managedItems, preferences: preferences)
@@ -1078,7 +1142,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
     }
 
     private func showSetupIfNeeded() {
-        guard !preferences.setupCompleted || !PermissionManager.isAccessibilityTrusted else { return }
+        guard !preferences.setupCompleted else { return }
         openSetup()
     }
 
@@ -1373,7 +1437,9 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         }
 
         for mode in VisibilityMode.allCases {
-            stack.addArrangedSubview(settingsRow(for: mode))
+            let row = settingsRow(for: mode)
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
         return stack
@@ -1460,41 +1526,18 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
 
     private func iconCard(for item: ManagedMenuBarItem) -> NSView {
         let mode = preferences.mode(for: item)
-        let button = IconTileButton(itemId: item.id)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.isBordered = false
-        button.toolTip = "\(item.displayName) — \(mode.label). Drag to move or reorder."
-        button.target = nil
-        button.action = nil
-        button.identifier = NSUserInterfaceItemIdentifier(item.id)
-        button.setButtonType(.momentaryChange)
-        button.wantsLayer = true
-        button.layer?.cornerRadius = 10
-        button.layer?.masksToBounds = true
-        button.layer?.backgroundColor = iconBackgroundColor(for: mode).cgColor
-        button.layer?.borderWidth = 2
-        button.layer?.borderColor = iconBorderColor(for: mode).cgColor
-
-        if let image = renderedIconImage(for: item) {
-            button.image = image
-            button.imagePosition = .imageOnly
-            if image.isTemplate { button.contentTintColor = .white }
-        } else {
-            let title = String(item.displayName.prefix(1)).uppercased()
-            button.attributedTitle = NSAttributedString(
-                string: title,
-                attributes: [
-                    .foregroundColor: NSColor.white,
-                    .font: NSFont.systemFont(ofSize: 14, weight: .semibold)
-                ]
-            )
-            button.font = .systemFont(ofSize: 14, weight: .semibold)
-            button.imagePosition = .noImage
-        }
-
-        button.widthAnchor.constraint(equalToConstant: 46).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 38).isActive = true
-        return button
+        let tile = IconTileView(
+            itemId: item.id,
+            image: renderedIconImage(for: item),
+            title: String(item.displayName.prefix(1)).uppercased(),
+            fillColor: iconBackgroundColor(for: mode),
+            strokeColor: iconBorderColor(for: mode)
+        )
+        tile.translatesAutoresizingMaskIntoConstraints = false
+        tile.toolTip = "\(item.displayName) — \(mode.label). Drag to move or reorder."
+        tile.widthAnchor.constraint(equalToConstant: 46).isActive = true
+        tile.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        return tile
     }
 
     private func renderedIconImage(for item: ManagedMenuBarItem) -> NSImage? {
