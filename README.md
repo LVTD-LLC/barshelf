@@ -17,7 +17,7 @@ BarShelf now has two approaches:
    - Always hidden
 2. **Fallback separator mode** — the original Hidden/Dozer-style separator and spacer technique.
 
-The advanced mode uses macOS status-window discovery, Accessibility menu-extra discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party and system menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
+The advanced mode uses macOS status-window discovery, Accessibility menu-extra discovery, screen capture, and Accessibility-assisted click forwarding. The goal is to make third-party and system menu bar icons appear in a compact translucent shelf below the macOS menu bar. Always-hidden items may be visually masked; floating-shelf items remain visible in the real menu bar until BarShelf can move/reorder them safely.
 
 ## Permissions
 
