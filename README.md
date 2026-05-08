@@ -17,13 +17,14 @@ BarShelf now has two approaches:
    - Always hidden
 2. **Fallback separator mode** — the original Hidden/Dozer-style separator and spacer technique.
 
-The advanced mode uses macOS status-window discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
+The advanced mode uses macOS status-window discovery, Accessibility menu-extra discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party and system menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
 
 ## Permissions
 
 Advanced routing needs user-granted macOS permissions:
 
 - **Accessibility** — forwards clicks from floating shelf items to the original menu bar item.
+- **Accessibility menu-extra discovery** — helps detect individual Control Center/SystemUIServer items that macOS exposes through `AXExtrasMenuBar` rather than separate WindowServer images.
 - **Screen Recording / Screen Capture** — captures menu bar item images for the floating shelf.
 
 On first launch, BarShelf opens a setup window that shows live permission status, opens the correct macOS Privacy settings panes, and keeps **Finish Setup** disabled until Accessibility is granted. You can reopen this window later from the BarShelf menu → Setup.

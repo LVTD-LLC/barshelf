@@ -45,6 +45,29 @@ final class MenuBarItemCandidateFilterTests: XCTestCase {
     }
 }
 
+final class AXMenuBarItemCandidateFilterTests: XCTestCase {
+    func testAcceptsMenuBarSizedAccessibilityItems() {
+        XCTAssertTrue(AXMenuBarItemCandidateFilter.accepts(x: 1110, y: 0, width: 28, height: 24))
+    }
+
+    func testRejectsNonMenuBarAccessibilityItems() {
+        XCTAssertFalse(AXMenuBarItemCandidateFilter.accepts(x: 10, y: 120, width: 300, height: 60))
+        XCTAssertFalse(AXMenuBarItemCandidateFilter.accepts(x: 10, y: 0, width: 0, height: 24))
+    }
+}
+
+final class AppleMenuExtraNameMapperTests: XCTestCase {
+    func testMapsKnownControlCenterIdentifiersToReadableNames() {
+        XCTAssertEqual(AppleMenuExtraNameMapper.displayName(for: "AudioVideoModule"), "Audio/Video")
+        XCTAssertEqual(AppleMenuExtraNameMapper.displayName(for: "com.apple.menuextra.TimeMachine"), "Time Machine")
+        XCTAssertEqual(AppleMenuExtraNameMapper.displayName(for: "WiFi"), "Wi-Fi")
+    }
+
+    func testUnknownNamesAreNotMapped() {
+        XCTAssertNil(AppleMenuExtraNameMapper.displayName(for: "SomeFutureMenuExtra"))
+    }
+}
+
 final class FloatingShelfLayoutCalculatorTests: XCTestCase {
     func testPositionsShelfBelowMenuBarUsingVisibleFrame() {
         let frame = FloatingShelfLayoutCalculator.frame(
