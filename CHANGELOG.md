@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added an experimental Accessibility-based menu extra scanner that reads `AXExtrasMenuBar`/menu-bar items and merges those results with the existing WindowServer scanner.
+- Improved detection of Control Center and SystemUIServer-owned extras with readable names like Battery, Wi-Fi, Audio/Video, Time Machine, and Control Center.
+- Added tests for Accessibility candidate filtering and Apple menu-extra name mapping.
+
 ## 0.3.8 - 2026-05-08
 
 - Reworked Settings item routing from a low-contrast vertical app-name table into a horizontal icon strip that better matches the macOS menu bar mental model.

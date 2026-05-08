@@ -18,6 +18,21 @@ struct ManagedMenuBarItem: Identifiable, Equatable {
     var displayName: String {
         MenuBarItemIdentity(owner: owner, name: name, roundedX: Int(bounds.minX.rounded())).displayName
     }
+
+    func withName(_ newName: String) -> ManagedMenuBarItem {
+        let resolvedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !resolvedName.isEmpty else { return self }
+        return ManagedMenuBarItem(
+            id: id,
+            owner: owner,
+            name: resolvedName,
+            ownerPID: ownerPID,
+            bundleIdentifier: bundleIdentifier,
+            windowNumber: windowNumber,
+            bounds: bounds,
+            image: image
+        )
+    }
 }
 
 final class Preferences {
@@ -150,8 +165,24 @@ final class PermissionManager {
 final class MenuBarItemScanner {
     private let ignoredOwners = ["BarShelf", "Window Server"]
     private let ignoredBundleIdentifiers = [Bundle.main.bundleIdentifier].compactMap { $0 }
+    private let axScanner = AXMenuBarItemScanner()
 
     func scan() -> [ManagedMenuBarItem] {
+        let cgItems = scanWindowServerItems()
+        let axItems = axScanner.scan()
+            .filter { !ignoredOwners.contains($0.owner) }
+            .filter { item in
+                guard let bundleIdentifier = item.bundleIdentifier else { return true }
+                return !ignoredBundleIdentifiers.contains(bundleIdentifier)
+            }
+        return merge(cgItems: cgItems, axItems: axItems)
+            .sorted { lhs, rhs in
+                if abs(lhs.bounds.minY - rhs.bounds.minY) < 1 { return lhs.bounds.minX < rhs.bounds.minX }
+                return lhs.bounds.minY < rhs.bounds.minY
+            }
+    }
+
+    private func scanWindowServerItems() -> [ManagedMenuBarItem] {
         let onScreen = windowInfo(options: [.optionOnScreenOnly, .excludeDesktopElements])
         let allWindows = windowInfo(options: [.optionAll, .excludeDesktopElements])
 
@@ -167,10 +198,28 @@ final class MenuBarItemScanner {
                 guard let bundleIdentifier = item.bundleIdentifier else { return true }
                 return !ignoredBundleIdentifiers.contains(bundleIdentifier)
             }
-            .sorted { lhs, rhs in
-                if abs(lhs.bounds.minY - rhs.bounds.minY) < 1 { return lhs.bounds.minX < rhs.bounds.minX }
-                return lhs.bounds.minY < rhs.bounds.minY
+    }
+
+    private func merge(cgItems: [ManagedMenuBarItem], axItems: [ManagedMenuBarItem]) -> [ManagedMenuBarItem] {
+        var merged = cgItems
+        for axItem in axItems {
+            if let index = merged.firstIndex(where: { isDuplicate($0, axItem) }) {
+                if merged[index].name.isEmpty, !axItem.name.isEmpty {
+                    merged[index] = merged[index].withName(axItem.name)
+                }
+            } else {
+                merged.append(axItem)
             }
+        }
+        return merged
+    }
+
+    private func isDuplicate(_ lhs: ManagedMenuBarItem, _ rhs: ManagedMenuBarItem) -> Bool {
+        let sameOwner = lhs.ownerPID == rhs.ownerPID || lhs.bundleIdentifier == rhs.bundleIdentifier
+        guard sameOwner else { return false }
+        let xClose = abs(lhs.bounds.midX - rhs.bounds.midX) <= max(8, min(lhs.bounds.width, rhs.bounds.width) / 2)
+        let widthClose = abs(lhs.bounds.width - rhs.bounds.width) <= max(10, min(lhs.bounds.width, rhs.bounds.width))
+        return xClose && widthClose
     }
 
     private func windowInfo(options: CGWindowListOption) -> [[String: Any]] {
@@ -233,6 +282,150 @@ final class MenuBarItemScanner {
         guard PermissionManager.hasScreenCaptureAccess else { return nil }
         guard let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, windowNumber, [.boundsIgnoreFraming, .nominalResolution]) else { return nil }
         return NSImage(cgImage: cgImage, size: bounds.size)
+    }
+}
+
+final class AXMenuBarItemScanner {
+    private let appleMenuBarOwners: Set<String> = [
+        "com.apple.controlcenter",
+        "com.apple.systemuiserver"
+    ]
+
+    func scan() -> [ManagedMenuBarItem] {
+        guard PermissionManager.isAccessibilityTrusted else { return [] }
+
+        return NSWorkspace.shared.runningApplications.flatMap { app -> [ManagedMenuBarItem] in
+            guard app.processIdentifier > 0 else { return [] }
+            guard app.bundleIdentifier != Bundle.main.bundleIdentifier else { return [] }
+            guard app.activationPolicy == .regular || app.activationPolicy == .accessory || app.activationPolicy == .prohibited else { return [] }
+            return scan(app: app)
+        }
+    }
+
+    private func scan(app: NSRunningApplication) -> [ManagedMenuBarItem] {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let roots = menuBarRoots(for: appElement, bundleIdentifier: app.bundleIdentifier)
+        guard !roots.isEmpty else { return [] }
+
+        let owner = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
+        return roots.flatMap(collectMenuBarItems(from:)).compactMap { item in
+            managedItem(from: item, app: app, owner: owner)
+        }
+    }
+
+    private func menuBarRoots(for appElement: AXUIElement, bundleIdentifier: String?) -> [AXUIElement] {
+        var roots: [AXUIElement] = []
+
+        if let extrasBar = axElementAttribute(appElement, name: "AXExtrasMenuBar") {
+            roots.append(extrasBar)
+        }
+
+        let allowMenuBarFallback = bundleIdentifier.map { appleMenuBarOwners.contains($0) } ?? false
+        if roots.isEmpty, allowMenuBarFallback,
+           let menuBar = axElementAttribute(appElement, name: kAXMenuBarAttribute as String) {
+            roots.append(menuBar)
+        }
+
+        return roots
+    }
+
+    private func collectMenuBarItems(from root: AXUIElement) -> [AXUIElement] {
+        var collected: [AXUIElement] = []
+
+        func visit(_ node: AXUIElement) {
+            let role = stringAttribute(node, name: kAXRoleAttribute as String)
+            if role == (kAXMenuBarItemRole as String) || role == "AXMenuBarItem" {
+                collected.append(node)
+                return
+            }
+
+            guard let children = arrayAttribute(node, name: kAXChildrenAttribute as String) else { return }
+            for child in children { visit(child) }
+        }
+
+        visit(root)
+        return collected
+    }
+
+    private func managedItem(from element: AXUIElement, app: NSRunningApplication, owner: String) -> ManagedMenuBarItem? {
+        guard let position = pointAttribute(element, name: kAXPositionAttribute as String),
+              let size = sizeAttribute(element, name: kAXSizeAttribute as String) else { return nil }
+
+        let bounds = CGRect(origin: position, size: size)
+        guard AXMenuBarItemCandidateFilter.accepts(x: Double(bounds.minX), y: Double(bounds.minY), width: Double(bounds.width), height: Double(bounds.height)) else {
+            return nil
+        }
+
+        let rawName = bestName(for: element, bundleIdentifier: app.bundleIdentifier, width: bounds.width)
+        let name = rawName.isEmpty ? "AXMenuExtra" : rawName
+        let id = MenuBarItemIdentity(owner: owner, name: name, roundedX: Int(bounds.minX.rounded())).id
+
+        return ManagedMenuBarItem(
+            id: id,
+            owner: owner,
+            name: name,
+            ownerPID: app.processIdentifier,
+            bundleIdentifier: app.bundleIdentifier,
+            windowNumber: 0,
+            bounds: bounds,
+            image: nil
+        )
+    }
+
+    private func bestName(for element: AXUIElement, bundleIdentifier: String?, width: CGFloat) -> String {
+        let identifier = stringAttribute(element, name: "AXIdentifier")
+        let description = stringAttribute(element, name: kAXDescriptionAttribute as String)
+        let title = stringAttribute(element, name: kAXTitleAttribute as String)
+        let label = [description, title, identifier]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? ""
+
+        guard let bundleIdentifier, bundleIdentifier.hasPrefix("com.apple.") else { return label }
+        if let mapped = AppleMenuExtraNameMapper.displayName(for: identifier ?? label) { return mapped }
+        if let mapped = AppleMenuExtraNameMapper.displayName(for: label) { return mapped }
+        return label
+    }
+
+    private func axElementAttribute(_ element: AXUIElement, name: String) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+
+    private func stringAttribute(_ element: AXUIElement, name: String) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
+        return value as? String
+    }
+
+    private func arrayAttribute(_ element: AXUIElement, name: String) -> [AXUIElement]? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
+        return value as? [AXUIElement]
+    }
+
+    private func pointAttribute(_ element: AXUIElement, name: String) -> CGPoint? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        let axValue = value as! AXValue
+        var point = CGPoint.zero
+        guard AXValueGetValue(axValue, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    private func sizeAttribute(_ element: AXUIElement, name: String) -> CGSize? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        let axValue = value as! AXValue
+        var size = CGSize.zero
+        guard AXValueGetValue(axValue, .cgSize, &size) else { return nil }
+        return size
     }
 }
 

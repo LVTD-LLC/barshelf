@@ -87,6 +87,59 @@ public enum MenuBarItemCandidateFilter {
     }
 }
 
+public enum AXMenuBarItemCandidateFilter {
+    public static func accepts(x: Double, y: Double, width: Double, height: Double, menuBarMaxY: Double = 48) -> Bool {
+        guard x.isFinite, y.isFinite, width.isFinite, height.isFinite else { return false }
+        guard y <= menuBarMaxY else { return false }
+        guard width >= 4 && width <= 280 else { return false }
+        guard height >= 12 && height <= 48 else { return false }
+        return true
+    }
+}
+
+public enum AppleMenuExtraNameMapper {
+    public static func displayName(for raw: String) -> String? {
+        let lower = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !lower.isEmpty else { return nil }
+        let compact = lower.replacingOccurrences(of: "[^a-z0-9]+", with: "", options: .regularExpression)
+        let components = Set(lower.split { !$0.isLetter && !$0.isNumber }.map(String.init))
+
+        let aliases: [String: String] = [
+            "accessibilityshortcuts": "Accessibility Shortcuts",
+            "airdrop": "AirDrop",
+            "airplay": "AirPlay",
+            "audiovideomodule": "Audio/Video",
+            "battery": "Battery",
+            "bluetooth": "Bluetooth",
+            "bentobox": "Control Center",
+            "clock": "Clock",
+            "controlcenter": "Control Center",
+            "display": "Display",
+            "focus": "Focus",
+            "focusmodes": "Focus",
+            "keyboardbrightness": "Keyboard Brightness",
+            "musicrecognition": "Music Recognition",
+            "networkspeed": "Network Speed",
+            "nowplaying": "Now Playing",
+            "screenmirroring": "Screen Mirroring",
+            "siri": "Siri",
+            "sound": "Sound",
+            "spotlight": "Spotlight",
+            "stagemanager": "Stage Manager",
+            "timemachine": "Time Machine",
+            "userswitcher": "Fast User Switching",
+            "wifi": "Wi-Fi"
+        ]
+
+        for (token, name) in aliases {
+            if lower == token || compact == token || components.contains(token) || lower.contains("menuextra.\(token)") {
+                return name
+            }
+        }
+        return nil
+    }
+}
+
 public struct FloatingShelfLayout: Equatable {
     public let x: Double
     public let y: Double
