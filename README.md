@@ -17,7 +17,7 @@ BarShelf now has two approaches:
    - Always hidden
 2. **Fallback separator mode** — the original Hidden/Dozer-style separator and spacer technique.
 
-The advanced mode uses macOS window discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
+The advanced mode uses macOS status-window discovery, screen capture, visual masking overlays, and Accessibility-assisted click forwarding. The goal is to make third-party menu bar icons appear in a compact translucent shelf below the macOS menu bar while masking the originals.
 
 ## Permissions
 
@@ -50,7 +50,7 @@ BarShelf’s own `▦` icon always stays visible in the macOS menu bar after lau
 Open BarShelf Settings with the BarShelf menu item or `Command-comma` while BarShelf is active. Settings includes **Check for Updates**, which can upgrade Homebrew cask installs in-place or open the latest release for manual installs. Then assign each detected menu bar item to one of the three modes:
 
 - **Always shown** keeps the original icon visible in the macOS menu bar.
-- **Floating shelf** masks the original icon and shows it in BarShelf’s shelf below the menu bar when you click the BarShelf icon.
+- **Floating shelf** masks the original icon and shows it in BarShelf’s floating panel below the menu bar when you click the BarShelf icon. The shelf anchors near BarShelf’s own icon and stays clamped to the current screen, similar to Ice’s separate-bar gallery behavior.
 - **Always hidden** masks the original icon and does not show it in the shelf.
 
 If an item cannot be detected reliably, use fallback separator mode: hold `Command (⌘)`, drag menu bar icons to the left of BarShelf's `│` separator, then collapse/expand the shelf.

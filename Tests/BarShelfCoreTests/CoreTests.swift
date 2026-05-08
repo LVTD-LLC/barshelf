@@ -29,6 +29,51 @@ final class MenuBarItemIdentityTests: XCTestCase {
     }
 }
 
+final class MenuBarItemCandidateFilterTests: XCTestCase {
+    func testAcceptsStatusWindowLevelMenuBarSizedItems() {
+        let candidate = MenuBarItemCandidate(layer: 25, x: 1080, y: 0, width: 28, height: 24, alpha: 1, owner: "Dropbox", title: "")
+
+        XCTAssertTrue(MenuBarItemCandidateFilter.accepts(candidate))
+    }
+
+    func testRejectsNonStatusWindowsAndWindowServerWindows() {
+        let normalWindow = MenuBarItemCandidate(layer: 0, x: 0, y: 80, width: 800, height: 600, alpha: 1, owner: "Safari", title: "")
+        let menuBarBackground = MenuBarItemCandidate(layer: 25, x: 0, y: 0, width: 1440, height: 24, alpha: 1, owner: "Window Server", title: "Menubar")
+
+        XCTAssertFalse(MenuBarItemCandidateFilter.accepts(normalWindow))
+        XCTAssertFalse(MenuBarItemCandidateFilter.accepts(menuBarBackground))
+    }
+}
+
+final class FloatingShelfLayoutCalculatorTests: XCTestCase {
+    func testPositionsShelfBelowMenuBarUsingVisibleFrame() {
+        let frame = FloatingShelfLayoutCalculator.frame(
+            itemCount: 4,
+            screenMinX: 0,
+            screenMaxX: 1440,
+            visibleFrameMaxY: 876,
+            anchorMidX: 1300
+        )
+
+        XCTAssertEqual(frame.height, 48)
+        XCTAssertEqual(frame.y, 820)
+        XCTAssertGreaterThanOrEqual(frame.x, 8)
+        XCTAssertLessThanOrEqual(frame.x + frame.width, 1432)
+    }
+
+    func testClampsShelfToScreenWhenAnchoredNearRightEdge() {
+        let frame = FloatingShelfLayoutCalculator.frame(
+            itemCount: 10,
+            screenMinX: 0,
+            screenMaxX: 500,
+            visibleFrameMaxY: 476,
+            anchorMidX: 490
+        )
+
+        XCTAssertEqual(frame.x + frame.width, 492)
+    }
+}
+
 final class VisibilityModeCodecTests: XCTestCase {
     func testRoundTripPersistsPerItemModes() throws {
         let modes = [

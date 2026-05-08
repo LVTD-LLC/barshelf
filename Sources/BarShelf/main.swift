@@ -9,6 +9,8 @@ struct ManagedMenuBarItem: Identifiable, Equatable {
     let id: String
     let owner: String
     let name: String
+    let ownerPID: pid_t
+    let bundleIdentifier: String?
     let windowNumber: CGWindowID
     let bounds: CGRect
     let image: NSImage?
@@ -147,18 +149,32 @@ final class PermissionManager {
 
 final class MenuBarItemScanner {
     private let ignoredOwners = ["BarShelf", "Window Server"]
+    private let ignoredBundleIdentifiers = [Bundle.main.bundleIdentifier].compactMap { $0 }
 
     func scan() -> [ManagedMenuBarItem] {
-        guard let infoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return []
-        }
+        let onScreen = windowInfo(options: [.optionOnScreenOnly, .excludeDesktopElements])
+        let allWindows = windowInfo(options: [.optionAll, .excludeDesktopElements])
 
-        return infoList.compactMap(item(from:))
+        // Ice relies on the window server's status-window level instead of trying to infer
+        // app-specific status items. Mirroring that approach catches more current macOS menu
+        // extras, while the on-screen pass keeps the list tied to what the user can manage now.
+        let combined = onScreen + allWindows
+        var seen = Set<CGWindowID>()
+        return combined.compactMap(item(from:))
+            .filter { seen.insert($0.windowNumber).inserted }
             .filter { !ignoredOwners.contains($0.owner) }
+            .filter { item in
+                guard let bundleIdentifier = item.bundleIdentifier else { return true }
+                return !ignoredBundleIdentifiers.contains(bundleIdentifier)
+            }
             .sorted { lhs, rhs in
-                if lhs.bounds.minY == rhs.bounds.minY { return lhs.bounds.minX < rhs.bounds.minX }
+                if abs(lhs.bounds.minY - rhs.bounds.minY) < 1 { return lhs.bounds.minX < rhs.bounds.minX }
                 return lhs.bounds.minY < rhs.bounds.minY
             }
+    }
+
+    private func windowInfo(options: CGWindowListOption) -> [[String: Any]] {
+        CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
     }
 
     private func item(from info: [String: Any]) -> ManagedMenuBarItem? {
@@ -174,13 +190,35 @@ final class MenuBarItemScanner {
             height: Self.number(boundsInfo["Height"])
         )
 
-        guard isLikelyStatusItem(layer: layer, bounds: bounds) else { return nil }
-
+        let alpha = Self.number(info[kCGWindowAlpha as String])
         let name = info[kCGWindowName as String] as? String ?? ""
+        let candidate = MenuBarItemCandidate(
+            layer: layer,
+            x: Double(bounds.minX),
+            y: Double(bounds.minY),
+            width: Double(bounds.width),
+            height: Double(bounds.height),
+            alpha: Double(alpha),
+            owner: owner,
+            title: name
+        )
+        guard MenuBarItemCandidateFilter.accepts(candidate) else { return nil }
+
         let id = MenuBarItemIdentity(owner: owner, name: name, roundedX: Int(bounds.minX.rounded())).id
         let image = capture(windowNumber: CGWindowID(windowNumber), bounds: bounds)
+        let ownerPID = pid_t(Int(Self.number(info[kCGWindowOwnerPID as String])))
+        let bundleIdentifier = NSRunningApplication(processIdentifier: ownerPID)?.bundleIdentifier
 
-        return ManagedMenuBarItem(id: id, owner: owner, name: name, windowNumber: CGWindowID(windowNumber), bounds: bounds, image: image)
+        return ManagedMenuBarItem(
+            id: id,
+            owner: owner,
+            name: name,
+            ownerPID: ownerPID,
+            bundleIdentifier: bundleIdentifier,
+            windowNumber: CGWindowID(windowNumber),
+            bounds: bounds,
+            image: image
+        )
     }
 
     private static func number(_ value: Any?) -> CGFloat {
@@ -191,19 +229,9 @@ final class MenuBarItemScanner {
         return 0
     }
 
-    private func isLikelyStatusItem(layer: Int, bounds: CGRect) -> Bool {
-        // Menu bar extras commonly appear as CGWindow layer 25 with menu-bar-height bounds.
-        // The height range intentionally allows recent macOS/menu-scale differences.
-        guard layer == 25 else { return false }
-        guard bounds.height >= 18 && bounds.height <= 34 else { return false }
-        guard bounds.width >= 6 && bounds.width <= 180 else { return false }
-        guard bounds.minY <= 40 else { return false }
-        return true
-    }
-
     private func capture(windowNumber: CGWindowID, bounds: CGRect) -> NSImage? {
         guard PermissionManager.hasScreenCaptureAccess else { return nil }
-        guard let cgImage = CGWindowListCreateImage(bounds, .optionIncludingWindow, windowNumber, [.boundsIgnoreFraming, .nominalResolution]) else { return nil }
+        guard let cgImage = CGWindowListCreateImage(.null, .optionIncludingWindow, windowNumber, [.boundsIgnoreFraming, .nominalResolution]) else { return nil }
         return NSImage(cgImage: cgImage, size: bounds.size)
     }
 }
@@ -270,7 +298,7 @@ final class FloatingShelfWindowController: NSObject {
         self.controller = controller
     }
 
-    func update(items: [ManagedMenuBarItem], preferences: Preferences) {
+    func update(items: [ManagedMenuBarItem], preferences: Preferences, anchorWindowFrame: NSRect?) {
         let shelfItems = items.filter { preferences.mode(for: $0) == .floatingShelf }
         guard !shelfItems.isEmpty else {
             panel?.orderOut(nil)
@@ -305,8 +333,9 @@ final class FloatingShelfWindowController: NSObject {
             stack.addArrangedSubview(button)
         }
 
-        let width = max(72, CGFloat(shelfItems.count) * 34 + 24)
-        let height: CGFloat = 46
+        let layout = frame(itemCount: shelfItems.count, anchorWindowFrame: anchorWindowFrame)
+        let width = CGFloat(layout.width)
+        let height = CGFloat(layout.height)
         stack.frame = NSRect(x: 0, y: 0, width: width, height: height)
 
         let effect = NSVisualEffectView(frame: stack.frame)
@@ -319,7 +348,7 @@ final class FloatingShelfWindowController: NSObject {
         effect.addSubview(stack)
 
         panel.contentView = effect
-        panel.setFrame(frame(width: width, height: height), display: true)
+        panel.setFrame(layout, display: true)
         panel.orderFrontRegardless()
     }
 
@@ -328,21 +357,37 @@ final class FloatingShelfWindowController: NSObject {
     }
 
     private func makePanel() -> NSPanel {
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 120, height: 46), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 120, height: 48), styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
+        panel.level = .mainMenu + 1
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .moveToActiveSpace, .ignoresCycle]
+        panel.title = "BarShelf Floating Shelf"
+        panel.titlebarAppearsTransparent = true
+        panel.allowsToolTipsWhenApplicationIsInactive = true
+        panel.isFloatingPanel = true
+        panel.animationBehavior = .none
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
         return panel
     }
 
-    private func frame(width: CGFloat, height: CGFloat) -> NSRect {
-        let screen = NSScreen.main ?? NSScreen.screens.first
+    private func frame(itemCount: Int, anchorWindowFrame: NSRect?) -> NSRect {
+        let screen = screen(containing: anchorWindowFrame) ?? NSScreen.main ?? NSScreen.screens.first
         let screenFrame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let x = screenFrame.midX - width / 2
-        let y = screenFrame.maxY - 88
-        return NSRect(x: x, y: y, width: width, height: height)
+        let visibleFrame = screen?.visibleFrame ?? NSRect(x: screenFrame.minX, y: screenFrame.minY, width: screenFrame.width, height: screenFrame.height - 24)
+        let layout = FloatingShelfLayoutCalculator.frame(
+            itemCount: itemCount,
+            screenMinX: Double(screenFrame.minX),
+            screenMaxX: Double(screenFrame.maxX),
+            visibleFrameMaxY: Double(visibleFrame.maxY),
+            anchorMidX: anchorWindowFrame.map { Double($0.midX) }
+        )
+        return NSRect(x: CGFloat(layout.x), y: CGFloat(layout.y), width: CGFloat(layout.width), height: CGFloat(layout.height))
+    }
+
+    private func screen(containing frame: NSRect?) -> NSScreen? {
+        guard let frame else { return NSScreen.main }
+        return NSScreen.screens.first { $0.frame.intersects(frame) } ?? NSScreen.main
     }
 }
 
@@ -606,7 +651,7 @@ final class BarShelfController: NSObject, NSApplicationDelegate {
         }
         overlays.apply(items: managedItems, preferences: preferences)
         if preferences.shelfVisible {
-            floatingShelf.update(items: managedItems, preferences: preferences)
+            floatingShelf.update(items: managedItems, preferences: preferences, anchorWindowFrame: toggleItem.button?.window?.frame)
             toggleItem.button?.title = "▦"
             toggleItem.button?.toolTip = "Hide BarShelf hidden icons"
         } else {
