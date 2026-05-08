@@ -51,6 +51,81 @@ public struct MenuBarItemIdentity: Equatable {
     }
 }
 
+public struct MenuBarItemCandidate: Equatable {
+    public let layer: Int
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+    public let alpha: Double
+    public let owner: String
+    public let title: String
+
+    public init(layer: Int, x: Double, y: Double, width: Double, height: Double, alpha: Double, owner: String, title: String) {
+        self.layer = layer
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.alpha = alpha
+        self.owner = owner
+        self.title = title
+    }
+}
+
+public enum MenuBarItemCandidateFilter {
+    public static let statusWindowLevel = 25
+
+    public static func accepts(_ candidate: MenuBarItemCandidate, menuBarMaxY: Double = 40) -> Bool {
+        guard candidate.layer == statusWindowLevel else { return false }
+        guard candidate.alpha > 0.01 else { return false }
+        guard candidate.height >= 14 && candidate.height <= 44 else { return false }
+        guard candidate.width >= 4 && candidate.width <= 260 else { return false }
+        guard candidate.y <= menuBarMaxY else { return false }
+        guard candidate.owner != "Window Server" else { return false }
+        return true
+    }
+}
+
+public struct FloatingShelfLayout: Equatable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+public enum FloatingShelfLayoutCalculator {
+    public static func frame(
+        itemCount: Int,
+        screenMinX: Double,
+        screenMaxX: Double,
+        visibleFrameMaxY: Double,
+        anchorMidX: Double?,
+        gapBelowMenuBar: Double = 8
+    ) -> FloatingShelfLayout {
+        let width = max(88, Double(itemCount) * 38 + 28)
+        let height: Double = 48
+        let lowerBound = screenMinX + 8
+        let upperBound = screenMaxX - width - 8
+        let preferredX = (anchorMidX ?? (screenMaxX - width / 2 - 18)) - width / 2
+        let x: Double
+        if lowerBound <= upperBound {
+            x = min(max(preferredX, lowerBound), upperBound)
+        } else {
+            x = screenMinX
+        }
+        let y = visibleFrameMaxY - height - gapBelowMenuBar
+        return FloatingShelfLayout(x: x, y: y, width: width, height: height)
+    }
+}
+
 public struct MenuBarItemSnapshot: Codable, Equatable, Identifiable {
     public let id: String
     public let owner: String
